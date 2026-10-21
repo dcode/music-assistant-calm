@@ -13,7 +13,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Read upstream Music Assistant version
         id: ma
-        run: echo "version=$(sed -n 's/^version: \(.*\)-calm.*/\1/p' music_assistant_calm/config.yaml)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(sed -n 's/^version: \(.*\)-calm.*/\1/p' music_assistant_calm/config.yaml)" >> "$GITHUB_OUTPUT"
       - name: Check out Music Assistant ${{ steps.ma.outputs.version }}
         uses: actions/checkout@v4
         with:
@@ -53,15 +54,5 @@ jobs:
           tags: music-assistant-calm:ci
       - name: Music Assistant discovers the Calm provider
         run: |
-          docker run --rm --platform ${{ matrix.platform }} --entrypoint python music-assistant-calm:ci -c '
-          import asyncio, os
-          from music_assistant.mass import PROVIDERS_PATH
-          from music_assistant_models.provider import ProviderManifest
-          from music_assistant.helpers.util import load_provider_module
-          assert "calm" in os.listdir(PROVIDERS_PATH), "calm provider missing"
-          async def main():
-              manifest = await ProviderManifest.parse(os.path.join(PROVIDERS_PATH, "calm", "manifest.json"))
-              module = await load_provider_module(manifest.domain, manifest.requirements)
-              print("loaded", module.__name__, "requirements", manifest.requirements)
-          asyncio.run(main())
-          '
+          docker run --rm -i --platform ${{ matrix.platform }} --entrypoint python \
+            music-assistant-calm:ci - < scripts/check_image.py
