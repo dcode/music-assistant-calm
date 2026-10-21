@@ -1,0 +1,5 @@
+# The official, multi-arch Music Assistant server image this add-on extends.
+# Bump together with `version` in config.yaml when upstream releases.
+build_from:
+  aarch64: ghcr.io/music-assistant/server:2.10.7
+  amd64: ghcr.io/music-assistant/server:2.10.7

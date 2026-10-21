@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Read upstream Music Assistant version
+        id: ma
+        run: echo "version=$(sed -n 's/^version: \(.*\)-calm.*/\1/p' music_assistant_calm/config.yaml)" >> "$GITHUB_OUTPUT"
+      - name: Check out Music Assistant ${{ steps.ma.outputs.version }}
+        uses: actions/checkout@v4
+        with:
+          repository: music-assistant/server
+          ref: ${{ steps.ma.outputs.version }}
+          path: ma-server
+      - name: Install
+        run: |
+          uv venv --python 3.14 .venv
+          # Music Assistant without its heavy ML/audio-analysis dependencies; the
+          # provider tests only need the core models and provider base classes
+          uv pip install --python .venv/bin/python --no-deps -e ./ma-server
+          sed -n '/^dependencies/,/^]/p' ma-server/pyproject.toml | tr -d ' ",' \
+            | grep -vE '^(dependencies|\]|#|$|torch|torchaudio|librosa|numpy|aiolibdatachannel)' > ma-deps.txt
+          uv pip install --python .venv/bin/python -r ma-deps.txt hass-client \
+            "$(jq -r '.requirements[0]' music_assistant_calm/provider/calm/manifest.json)" \
+            pytest pytest-asyncio
+          ln -s "$PWD/music_assistant_calm/provider/calm" ma-server/music_assistant/providers/calm
+      - name: Test
+        run: .venv/bin/python -m pytest -v
+
+  build-addon:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build add-on image
+        uses: docker/build-push-action@v6
+        with:
+          context: music_assistant_calm
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: music-assistant-calm:ci
+      - name: Music Assistant discovers the Calm provider
+        run: |
+          docker run --rm --platform ${{ matrix.platform }} --entrypoint python music-assistant-calm:ci -c '
+          import asyncio, os
+          from music_assistant.mass import PROVIDERS_PATH
+          from music_assistant_models.provider import ProviderManifest
+          from music_assistant.helpers.util import load_provider_module
+          assert "calm" in os.listdir(PROVIDERS_PATH), "calm provider missing"
+          async def main():
+              manifest = await ProviderManifest.parse(os.path.join(PROVIDERS_PATH, "calm", "manifest.json"))
+              module = await load_provider_module(manifest.domain, manifest.requirements)
+              print("loaded", module.__name__, "requirements", manifest.requirements)
+          asyncio.run(main())
+          '

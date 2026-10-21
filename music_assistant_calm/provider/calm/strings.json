@@ -1,0 +1,10 @@
+{
+  "media": {
+    "recommendations": {
+      "calm_home": { "name": "Calm for you" }
+    }
+  },
+  "manifest": {
+    "description": "Sleep stories, meditations, soundscapes and music from your Calm subscription."
+  }
+}

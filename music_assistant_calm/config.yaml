@@ -1,0 +1,48 @@
+# Mirrors the official Music Assistant add-on (music-assistant/home-assistant-addon),
+# but is built locally from the official server image with the Calm provider added.
+# Keep everything except name/slug/version/image/stage in sync with upstream.
+name: Music Assistant (with Calm)
+version: 2.10.7-calm.1
+slug: music_assistant_calm
+description:
+  The official Music Assistant server, plus a Calm provider for sleep stories,
+  meditations, soundscapes and music from your Calm subscription.
+url: https://github.com/dcode/music-assistant-calm
+arch:
+  - amd64
+  - aarch64
+homeassistant_api: true
+hassio_api: true
+hassio_role: manager
+discovery:
+  - music_assistant
+auth_api: true
+host_network: true
+ingress: true
+ingress_port: 8094
+audio: true
+panel_icon: mdi:music-assistant
+panel_title: Music Assistant
+panel_admin: false
+uart: false
+apparmor: true
+map:
+  - media:rw
+  - ssl:ro
+init: false
+backup_exclude:
+  - cache.db
+  - collage_images/*
+  - .cache/*
+  - library.db.backup
+stage: experimental
+tmpfs: true
+options:
+  log_level: info
+  safe_mode: false
+schema:
+  log_level: list(debug|info|warning|error)
+  safe_mode: bool
+privileged:
+  - SYS_ADMIN
+  - DAC_READ_SEARCH
