@@ -45,6 +45,15 @@ ln -s "$PWD/music_assistant_calm/provider/calm" /path/to/music-assistant-server/
 
 CI does the same in `.github/workflows/ci.yml`, and also builds the add-on image.
 
+## Long-term: no custom image needed
+
+The add-on exists only because Music Assistant can't load providers from outside its
+own package. [dcode/music-assistant-server@feat/custom-providers](https://github.com/dcode/music-assistant-server/tree/feat/custom-providers)
+adds a `custom_providers` directory (like Home Assistant's `custom_components`). With
+that in Music Assistant, installing Calm becomes: copy `music_assistant_calm/provider/calm`
+to `/addon_configs/<music assistant slug>/custom_providers/calm` and restart, on the
+official add-on. The provider runs unmodified that way (verified against the branch).
+
 ## Status
 
 Unofficial and experimental. Calm's web API is undocumented and may change.
