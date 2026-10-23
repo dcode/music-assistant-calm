@@ -15,11 +15,9 @@ unlocked for the logged-in account.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncGenerator, Sequence
 from typing import TYPE_CHECKING, Any
 
-import structlog
 from music_assistant_models.enums import (
     AlbumType,
     ContentType,
@@ -93,40 +91,6 @@ FOLDER_TYPES = {"pack", "feed"}
 CACHE_TTL_CATALOG = 3600 * 24
 CACHE_TTL_FEED = 3600 * 3
 
-_SENSITIVE_LOG_KEYS = {"headers", "body", "cookies", "token", "token_preview"}
-
-
-def _redact_sensitive(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
-    """Drop request headers/bodies from calm-client log events: they carry tokens and passwords."""
-    for key in _SENSITIVE_LOG_KEYS & event_dict.keys():
-        event_dict[key] = "<redacted>"
-    return event_dict
-
-
-def _route_calm_client_logging(logger: logging.Logger) -> None:
-    """
-    Send calm-client's structlog output through MA's logger, with secrets redacted.
-
-    calm-client 0.1.0 logs through an unconfigured structlog logger, which prints every
-    request (including auth headers and the login body) to stdout at debug level.
-    calm_client.client binds that logger at import time (the package __init__ imports
-    it), so the module attribute is replaced as well as the lazily created default.
-    """
-    import calm_client.client as calm_client_module  # noqa: PLC0415
-    import calm_client.logging as calm_logging  # noqa: PLC0415
-
-    wrapped = structlog.wrap_logger(
-        logger,
-        processors=[
-            structlog.stdlib.filter_by_level,
-            _redact_sensitive,
-            structlog.processors.KeyValueRenderer(key_order=["event"]),
-        ],
-        wrapper_class=structlog.stdlib.BoundLogger,
-    )
-    calm_logging._logger = wrapped
-    calm_client_module.logger = wrapped
-
 
 async def setup(
     mass: MusicAssistant, manifest: ProviderManifest, config: ProviderConfig
@@ -146,7 +110,6 @@ class CalmProvider(MusicProvider):
 
     async def handle_async_init(self) -> None:
         """Log in to Calm, reusing stored tokens where possible."""
-        _route_calm_client_logging(self.logger.getChild("client"))
         from calm_client import CalmAuthError, CalmClient, Credentials  # noqa: PLC0415
 
         stored = self.get_setup_value(CONF_CREDENTIALS)

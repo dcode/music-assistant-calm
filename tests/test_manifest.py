@@ -14,7 +14,7 @@ PROVIDER_DIR = ADDON_DIR / "provider" / "calm"
 async def test_manifest_parses() -> None:
     manifest = await ProviderManifest.parse(str(PROVIDER_DIR / "manifest.json"))
     assert manifest.domain == "calm"
-    assert manifest.requirements == ["calm-client==0.1.0"]
+    assert manifest.requirements == ["calm-client==0.2.1"]
 
 
 def test_dockerfile_installs_manifest_requirement() -> None:
