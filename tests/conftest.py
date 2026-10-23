@@ -1,4 +1,4 @@
-"""Fixtures for the Calm provider tests: a provider with a mocked MA core and Calm API."""
+"""Fixtures for the Calm provider tests: a provider with a mocked MA core and Calm client."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from calm_client import models as calm
 
 from music_assistant.providers.calm import SUPPORTED_FEATURES, CalmProvider
 
@@ -66,57 +67,72 @@ FEED_PROGRAM = {
     "narrator_name": "Curated by Calm",
     "is_unlocked": False,
 }
+# a sub-pack entry (browsable folder, no audio of its own)
+PACK_FOLDER = {"type": "pack", "pack_class": "sub", "title": "Sub"}
 
 FEED_SLEEP = {
-    "feed": {
-        "id": "sleep",
-        "tags": [{"feed_id": "sleep-music", "title": "Music"}, {"pack_class": "tagged-x", "title": "Meditations"}],
-        "packs": [
-            {"title": None, "pack_class": "upsell", "items": [{"type": "url", "title": "Buy"}]},
-            {"title": "Featured", "pack_class": "sleep-featured", "items": [FEED_GUIDE]},
-            {"title": "Recently Played", "pack_class": "recent", "items": []},
-        ],
-    }
+    "id": "sleep",
+    "tags": [{"feed_id": "sleep-music", "title": "Music"}, {"pack_class": "tagged-x", "title": "Meditations"}],
+    "packs": [
+        {"title": "", "pack_class": "upsell", "items": [{"type": "url", "title": "Buy"}]},
+        {"title": "Featured", "pack_class": "sleep-featured", "items": [FEED_GUIDE]},
+        {"title": "Recently Played", "pack_class": "recent", "items": []},
+    ],
 }
 
 
-class FakeCalmApi:
-    """Routes provider API calls to canned responses and records them."""
+class FakeCalmClient:
+    """Returns calm-client models from canned responses and records the calls made."""
 
     def __init__(self, unlocked: bool = True) -> None:
         self.calls: list[str] = []
         self.unlocked = unlocked
+        # _store_credentials reads these; the provider fixture no-ops it anyway
+        self.credentials = Mock()
+        self.credentials.model_dump_json.return_value = "{}"
 
-    async def __call__(self, method: str, endpoint: str, **kwargs: Any) -> Any:
-        self.calls.append(endpoint)
-        if endpoint == f"content/programs/{PROGRAM_ID}":
-            return {"program": PROGRAM}
-        if endpoint.startswith("programs/guides/"):
-            return {"id": PROGRAM_ID, "program_id": PROGRAM_ID, "unlocked": self.unlocked, "free": False}
-        if endpoint == "packs/feeds/sleep":
-            return FEED_SLEEP
-        if endpoint == "packs/feeds/home":
-            return FEED_SLEEP
-        if endpoint == "packs/class/sleep-featured":
-            return {"pack": {"items": [FEED_GUIDE, FEED_PROGRAM, {"type": "pack", "pack_class": "sub", "title": "Sub"}]}}
-        if endpoint == "packs/class/faves-hydrated":
-            return {"pack": {"items": [FEED_GUIDE, FEED_PROGRAM]}}
-        if endpoint == "search/v2":
-            return {"pack": {"items": [FEED_PROGRAM, FEED_GUIDE]}}
-        raise AssertionError(f"unexpected endpoint {endpoint}")
+    async def get_program(self, program_id: str) -> calm.Program:
+        self.calls.append(f"content/programs/{program_id}")
+        return calm.Program.model_validate(PROGRAM)
+
+    async def get_guide_summary(self, guide_id: str) -> calm.GuideSummary:
+        self.calls.append(f"programs/guides/{guide_id}")
+        return calm.GuideSummary.model_validate(
+            {"id": guide_id, "program_id": PROGRAM_ID, "unlocked": self.unlocked, "free": False}
+        )
+
+    async def get_category_feed(self, category: str) -> calm.FeedResponse:
+        self.calls.append(f"packs/feeds/{category}")
+        return calm.FeedResponse.model_validate(FEED_SLEEP)
+
+    async def get_pack(self, pack_class: str) -> calm.Pack:
+        self.calls.append(f"packs/class/{pack_class}")
+        return calm.Pack.model_validate(
+            {"pack_class": pack_class, "items": [FEED_GUIDE, FEED_PROGRAM, PACK_FOLDER]}
+        )
+
+    async def get_favorites(self) -> list[calm.PackItem]:
+        self.calls.append("packs/class/faves-hydrated")
+        return calm.Pack.model_validate({"items": [FEED_GUIDE, FEED_PROGRAM]}).items
+
+    async def search(
+        self, query: str, *, category: str | None = None, duration: str | None = None
+    ) -> calm.SearchResponse:
+        self.calls.append("search/v2")
+        return calm.SearchResponse.model_validate({"items": [FEED_PROGRAM, FEED_GUIDE]})
 
 
 @pytest.fixture
-def api() -> FakeCalmApi:
-    """Return the fake Calm API."""
-    return FakeCalmApi()
+def api() -> FakeCalmClient:
+    """Return the fake Calm client."""
+    return FakeCalmClient()
 
 
 @pytest.fixture
-def provider(api: FakeCalmApi) -> CalmProvider:
-    """Create a CalmProvider with a mocked MA core (no caching) and fake Calm API."""
+def provider(api: FakeCalmClient) -> CalmProvider:
+    """Create a CalmProvider with a mocked MA core (no caching) and fake Calm client."""
     mass = Mock()
-    # always a cache miss, so every call reaches the (fake) API
+    # always a cache miss, so every call reaches the (fake) client
     mass.cache.get_with_freshness = AsyncMock(return_value=(None, False, False))
     mass.cache.set = AsyncMock()
     # use_cache runs fetches through mass.create_task
@@ -129,5 +145,7 @@ def provider(api: FakeCalmApi) -> CalmProvider:
     config.enabled = True
     config.get_value.side_effect = lambda key, default=None: {"log_level": "GLOBAL"}.get(key, default)
     prov = CalmProvider(mass, manifest, config, SUPPORTED_FEATURES)
-    prov._api = api  # type: ignore[method-assign]
+    prov._client = api  # type: ignore[assignment]
+    # credential persistence is exercised by the login tests, not the mapping tests
+    prov._store_credentials = lambda: None  # type: ignore[method-assign]
     return prov
