@@ -7,7 +7,7 @@ ARG BUILD_FROM=ghcr.io/music-assistant/server:2.10.7
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
-ARG CALM_CLIENT_VERSION=0.1.0
+ARG CALM_CLIENT_VERSION=0.2.1
 
 COPY provider/calm /tmp/calm
 

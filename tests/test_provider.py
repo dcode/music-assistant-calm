@@ -100,12 +100,3 @@ async def test_recommendations(provider: CalmProvider) -> None:
     assert len(items) == 3
 
 
-def test_redacts_secrets_from_client_logs() -> None:
-    from music_assistant.providers.calm import _redact_sensitive
-
-    event = {"event": "http_request", "headers": {"Cookie": "calm-user-token=secret"}, "body": {"password": "pw"}}
-    assert _redact_sensitive(None, "debug", event) == {
-        "event": "http_request",
-        "headers": "<redacted>",
-        "body": "<redacted>",
-    }

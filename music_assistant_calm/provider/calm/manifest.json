@@ -5,7 +5,7 @@
   "name": "Calm",
   "description": "Sleep stories, meditations, soundscapes and music from your Calm subscription.",
   "codeowners": ["@dcode"],
-  "requirements": ["calm-client==0.1.0"],
+  "requirements": ["calm-client==0.2.1"],
   "documentation": "https://github.com/dcode/music-assistant-calm",
   "multi_instance": true,
   "icon": "meditation"
