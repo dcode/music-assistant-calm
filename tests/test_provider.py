@@ -9,7 +9,7 @@ from music_assistant_models.media_items import Album, BrowseFolder, Track
 
 from music_assistant.providers.calm import CalmProvider
 
-from .conftest import GUIDE_ID, PROGRAM_ID, FakeCalmApi
+from .conftest import GUIDE_ID, PROGRAM_ID, FakeCalmClient
 
 
 async def test_get_album_maps_program(provider: CalmProvider) -> None:
@@ -31,7 +31,7 @@ async def test_album_tracks_ordered_by_position(provider: CalmProvider) -> None:
     assert mapping.audio_format.content_type == ContentType.MP4
 
 
-async def test_get_track_resolves_program(provider: CalmProvider, api: FakeCalmApi) -> None:
+async def test_get_track_resolves_program(provider: CalmProvider, api: FakeCalmClient) -> None:
     track = await provider.get_track(GUIDE_ID)
     assert track.name == "First"
     assert isinstance(track.album, Album) and track.album.item_id == PROGRAM_ID
@@ -46,7 +46,7 @@ async def test_stream_details(provider: CalmProvider) -> None:
     assert details.audio_format.content_type == ContentType.MP4
 
 
-async def test_stream_refused_when_locked(provider: CalmProvider, api: FakeCalmApi) -> None:
+async def test_stream_refused_when_locked(provider: CalmProvider, api: FakeCalmClient) -> None:
     api.unlocked = False
     with pytest.raises(MediaNotFoundError):
         await provider.get_stream_details(GUIDE_ID, MediaType.TRACK)
