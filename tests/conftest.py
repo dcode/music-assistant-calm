@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from calm_client import models as calm
 
+from music_assistant.helpers.throttle_retry import ThrottlerManager
 from music_assistant.providers.calm import SUPPORTED_FEATURES, CalmProvider
 
 PROGRAM_ID = "prog1"
@@ -33,7 +34,11 @@ PROGRAM: dict[str, Any] = {
             "position": 2,
             "is_free": False,
             "assets": [
-                {"url": "https://assets.calm.com/b.wav", "content_type": "audio/wav", "duration": 60}
+                {
+                    "url": "https://assets.calm.com/b.wav",
+                    "content_type": "audio/wav",
+                    "duration": 60,
+                }
             ],
         },
         {
@@ -42,8 +47,21 @@ PROGRAM: dict[str, Any] = {
             "position": 1,
             "is_free": False,
             "assets": [
-                {"url": "https://assets.calm.com/a.wav", "content_type": "audio/wav", "duration": 1423},
-                {"url": "https://assets.calm.com/a.m4a", "content_type": "audio/mp4", "duration": 1423},
+                {
+                    "url": "https://assets.calm.com/a.wav",
+                    "content_type": "audio/wav",
+                    "duration": 1423,
+                },
+                {
+                    "url": "https://assets.calm.com/a.m4a",
+                    "content_type": "audio/mp4",
+                    "duration": 1423,
+                },
+                {
+                    "url": "https://assets.calm.com/a.oga",
+                    "content_type": "audio/ogg",
+                    "duration": 1423,
+                },
             ],
         },
     ],
@@ -58,7 +76,9 @@ FEED_GUIDE = {
     "narrator_name": "Curated by Calm",
     "is_unlocked": True,
     "image": {"url": "https://assets.calm.com/item.jpeg"},
-    "assets": [{"url": "https://assets.calm.com/a.oga", "content_type": "audio/ogg", "duration": 2176.6}],
+    "assets": [
+        {"url": "https://assets.calm.com/a.oga", "content_type": "audio/ogg", "duration": 2176.6}
+    ],
 }
 FEED_PROGRAM = {
     "type": "program",
@@ -72,7 +92,10 @@ PACK_FOLDER = {"type": "pack", "pack_class": "sub", "title": "Sub"}
 
 FEED_SLEEP = {
     "id": "sleep",
-    "tags": [{"feed_id": "sleep-music", "title": "Music"}, {"pack_class": "tagged-x", "title": "Meditations"}],
+    "tags": [
+        {"feed_id": "sleep-music", "title": "Music"},
+        {"pack_class": "tagged-x", "title": "Meditations"},
+    ],
     "packs": [
         {"title": "", "pack_class": "upsell", "items": [{"type": "url", "title": "Buy"}]},
         {"title": "Featured", "pack_class": "sleep-featured", "items": [FEED_GUIDE]},
@@ -85,6 +108,7 @@ class FakeCalmClient:
     """Returns calm-client models from canned responses and records the calls made."""
 
     def __init__(self, unlocked: bool = True) -> None:
+        """Create the fake; ``unlocked`` sets the lock flag of every guide summary."""
         self.calls: list[str] = []
         self.unlocked = unlocked
         # _store_credentials reads these; the provider fixture no-ops it anyway
@@ -92,32 +116,38 @@ class FakeCalmClient:
         self.credentials.model_dump_json.return_value = "{}"
 
     async def get_program(self, program_id: str) -> calm.Program:
+        """Return the canned program."""
         self.calls.append(f"content/programs/{program_id}")
         return calm.Program.model_validate(PROGRAM)
 
     async def get_guide_summary(self, guide_id: str) -> calm.GuideSummary:
+        """Return a summary pointing at the canned program."""
         self.calls.append(f"programs/guides/{guide_id}")
         return calm.GuideSummary.model_validate(
             {"id": guide_id, "program_id": PROGRAM_ID, "unlocked": self.unlocked, "free": False}
         )
 
     async def get_category_feed(self, category: str) -> calm.FeedResponse:
+        """Return the canned feed."""
         self.calls.append(f"packs/feeds/{category}")
         return calm.FeedResponse.model_validate(FEED_SLEEP)
 
     async def get_pack(self, pack_class: str) -> calm.Pack:
+        """Return a pack with a guide, a program and a sub-pack."""
         self.calls.append(f"packs/class/{pack_class}")
         return calm.Pack.model_validate(
             {"pack_class": pack_class, "items": [FEED_GUIDE, FEED_PROGRAM, PACK_FOLDER]}
         )
 
     async def get_favorites(self) -> list[calm.PackItem]:
+        """Return the canned favorites."""
         self.calls.append("packs/class/faves-hydrated")
         return calm.Pack.model_validate({"items": [FEED_GUIDE, FEED_PROGRAM]}).items
 
     async def search(
         self, query: str, *, category: str | None = None, duration: str | None = None
     ) -> calm.SearchResponse:
+        """Return a program and a guide as search results."""
         self.calls.append("search/v2")
         return calm.SearchResponse.model_validate({"items": [FEED_PROGRAM, FEED_GUIDE]})
 
@@ -143,8 +173,12 @@ def provider(api: FakeCalmClient) -> CalmProvider:
     config.instance_id = "calm--test"
     config.name = "Calm"
     config.enabled = True
-    config.get_value.side_effect = lambda key, default=None: {"log_level": "GLOBAL"}.get(key, default)
+    config.get_value.side_effect = lambda key, default=None: {"log_level": "GLOBAL"}.get(
+        key, default
+    )
     prov = CalmProvider(mass, manifest, config, SUPPORTED_FEATURES)
+    # the real limiter would make the tests wait on each other
+    prov.throttler = ThrottlerManager(rate_limit=1000, period=1)
     prov._client = api  # type: ignore[assignment]
     # credential persistence is exercised by the login tests, not the mapping tests
     prov._store_credentials = lambda: None  # type: ignore[method-assign]
