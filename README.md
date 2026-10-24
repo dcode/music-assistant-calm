@@ -10,7 +10,7 @@ This repository contains:
 |---|---|
 | `music_assistant_calm/provider/calm/` | The Calm music provider for Music Assistant |
 | `music_assistant_calm/` | A Home Assistant add-on: the official MA server image plus the provider |
-| `tests/` | Provider tests, run against Music Assistant 2.10.7 |
+| `tests/` | Provider tests, run against Music Assistant 2.10.8 |
 
 ## Install on Home Assistant OS
 
@@ -37,7 +37,7 @@ Items Calm reports as locked for your account are listed but not playable.
 
 ```bash
 uv venv --python 3.14 .venv
-uv pip install --python .venv/bin/python --no-deps -e /path/to/music-assistant-server@2.10.7
+uv pip install --python .venv/bin/python --no-deps -e /path/to/music-assistant-server@2.10.8
 uv pip install --python .venv/bin/python calm-client==0.1.0 pytest pytest-asyncio ...
 ln -s "$PWD/music_assistant_calm/provider/calm" /path/to/music-assistant-server/music_assistant/providers/calm
 .venv/bin/python -m pytest
