@@ -1,7 +1,19 @@
 {
-  "media": {
-    "recommendations": {
-      "calm_home": { "name": "Calm for you" }
+  "config_entries": {
+    "username": {
+      "label": "Email"
+    },
+    "password": {
+      "label": "[%key:common::config_entries::password::label%]"
+    },
+    "audio_quality": {
+      "label": "Audio quality",
+      "description": "Which audio format to stream. Higher quality uses much more bandwidth.",
+      "options": {
+        "compact": "Efficient (AAC, about 30 MB per 30 minutes)",
+        "balanced": "Balanced (Ogg Vorbis, about 50 MB per 30 minutes)",
+        "highest": "Lossless (WAV, about 500 MB per 30 minutes)"
+      }
     }
   },
   "manifest": {

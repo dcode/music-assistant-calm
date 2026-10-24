@@ -2,7 +2,7 @@
 # but is built locally from the official server image with the Calm provider added.
 # Keep everything except name/slug/version/image/stage in sync with upstream.
 name: Music Assistant (with Calm)
-version: 2.10.7-calm.1
+version: 2.10.7-calm.2
 slug: music_assistant_calm
 description:
   The official Music Assistant server, plus a Calm provider for sleep stories,

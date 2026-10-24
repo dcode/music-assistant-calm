@@ -18,13 +18,11 @@ _ENTRIES = (
     ConfigEntry(
         key=CONF_USERNAME,
         type=ConfigEntryType.STRING,
-        label="Email",
         required=True,
     ),
     ConfigEntry(
         key=CONF_PASSWORD,
         type=ConfigEntryType.SECURE_STRING,
-        label="Password",
         required=True,
     ),
 )
@@ -32,7 +30,7 @@ _ENTRIES = (
 
 async def run_setup(session: SetupSession) -> None:
     """Run the setup flow: collect the credentials and create the provider."""
-    errors: dict[str, str] | None = None
+    errors: dict[str, str | SetupFlowError] | None = None
     setup_data = dict(session.context.setup_data)
     while True:
         entries = [
@@ -46,4 +44,4 @@ async def run_setup(session: SetupSession) -> None:
             await session.finish(setup_data)
             return
         except SetupFlowError as err:
-            errors = {"base": err.translation_key or str(err)}
+            errors = {"base": err}
