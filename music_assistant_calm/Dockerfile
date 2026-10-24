@@ -3,7 +3,7 @@
 # Music Assistant only discovers providers inside its own package
 # (music_assistant/providers/<domain>), so the provider is copied there and its
 # Python requirement is installed into the server's virtualenv at build time.
-ARG BUILD_FROM=ghcr.io/music-assistant/server:2.10.7
+ARG BUILD_FROM=ghcr.io/music-assistant/server:2.10.8
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
