@@ -20,3 +20,10 @@ RUN set -eu \
     && rm -rf /tmp/calm \
     && uv pip install --python /app/venv/bin/python --no-cache "calm-client==${CALM_CLIENT_VERSION}" \
     && /app/venv/bin/python -c "import calm_client, music_assistant.providers.calm"
+
+# Crash diagnostics: print native stack traces on SIGSEGV/SIGABRT/etc. (these kills
+# otherwise leave no Python traceback) and log container memory every few seconds.
+ENV PYTHONFAULTHANDLER=1
+COPY diagnostics.sh /usr/local/bin/calm-diagnostics.sh
+RUN chmod +x /usr/local/bin/calm-diagnostics.sh
+ENTRYPOINT ["/usr/local/bin/calm-diagnostics.sh", "--data-dir", "/data", "--cache-dir", "/data/.cache"]
